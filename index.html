@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="de">
+
+<head>
+    <meta charset="utf-8">
+    <title>Lützipedia</title>
+    <style>
+        html,
+        body {
+            height: 100%;
+        }
+
+        body {
+            align-items: center;
+            display: flex;
+            flex-direction: column;
+            font-family: monospace;
+			text-align: center;
+            justify-content: center;
+        }
+
+        .countdown {
+            display: flex;
+            gap: 5px;
+        }
+
+        .countdown>div {
+            text-align: center;
+        }
+
+        .countdown>div>div {
+            align-items: center;
+            background-color: #333;
+            border-radius: 5px;
+            color: #fff;
+            display: flex;
+            font-size: 32px;
+            height: 60px;
+            justify-content: center;
+            width: 100px;
+        }
+    </style>
+</head>
+
+<body>
+    <h2>Please come back in</h2>
+
+    <div class="countdown">
+        <div>
+            Tage
+            <div id="days"></div>
+            Days
+        </div>
+        <div>
+            Stunden
+            <div id="hours"></div>
+            Hours
+        </div>
+        <div>
+            Minuten
+            <div id="minutes"></div>
+            Minutes
+        </div>
+        <div>
+            Sekunden
+            <div id="seconds"></div>
+            Seconds
+        </div>
+    </div>
+
+    <p>
+        <br><br><br><br>
+		Lützipedia shall go live on <strong>June 10</strong>.<br>
+		You may already watch the <a href="https://pretalx.c3voc.de/37c3-lightningtalks/talk/HUBJFX/" target="_blank">SHORT TALK at 37C3</a> or the <a href="https://youtu.be/lPqCkzOXENw" target="_blank">PROJECT TRAILER</a>:
+		<br><br>
+        <iframe width="560" height="315" src="https://www.youtube.com/embed/lPqCkzOXENw?si=dgFohlyhNEUd7BB5" title="YouTube video player" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen></iframe>
+    </p>
+
+    <script>
+        var targetDate = new Date("Jun 10, 2024 00:00:00").getTime();
+        var daysElem = document.getElementById("days");
+        var hoursElem = document.getElementById("hours");
+        var minutesElem = document.getElementById("minutes");
+        var secondsElem = document.getElementById("seconds");
+        const showValues = () => {
+            var now = new Date().getTime();
+            var distance = targetDate - now;
+            var days = Math.floor(distance / (1000 * 60 * 60 * 24));
+            var hours = Math.floor((distance % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+            var minutes = Math.floor((distance % (1000 * 60 * 60)) / (1000 * 60));
+            var seconds = Math.floor((distance % (1000 * 60)) / 1000);
+            document.getElementById("days").innerHTML = days;
+            document.getElementById("hours").innerHTML = hours;
+            document.getElementById("minutes").innerHTML = minutes;
+            document.getElementById("seconds").innerHTML = seconds;
+        };
+        setInterval(showValues, 1000);
+        showValues();
+    </script>
+</body>
+
+</html>
