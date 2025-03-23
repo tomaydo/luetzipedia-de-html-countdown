@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+
+<html lang="en">
+
+<head>
+
+  <meta charset="utf-8">
+
+  <title>Split Screen Test – Lützipedia 4D Atlas</title>
+
+  <!-- Include the CesiumJS JavaScript and CSS files -->
+
+  <script src="https://cesium.com/downloads/cesiumjs/releases/1.117/Build/Cesium/Cesium.js"></script>
+
+  <link href="https://cesium.com/downloads/cesiumjs/releases/1.117/Build/Cesium/Widgets/widgets.css" rel="stylesheet">
+
+  <link href="style.css" rel="stylesheet">
+  
+  <style type="text/css">
+    @import url(bucket.css);
+
+    #slider {
+      position: absolute;
+      left: 50%;
+      top: 0px;
+      background-color: #d3d3d300;
+      width: 3px;
+      height: 100%;
+      z-index: 9999;
+    }
+
+    #slider:hover {
+      cursor: ew-resize;
+    }
+
+    #zoom-to-luetzi { z-index: 1; position: fixed; top: 5px; left: 5px; }
+    #fly-to-luetzi { z-index: 1; position: fixed; top: 5px; left: 100px; }
+
+  </style>
+
+</head>
+
+<body>
+
+  <div id="cesiumContainer" class="fullSize">
+    <div id="slider"></div>
+  </div>
+  <div id="loadingOverlay"><h1>Loading Lützi ...</h1></div>
+  <div id="toolbar"></div>
+
+  <button id="zoom-to-luetzi">zoomTo Lützi</button>
+
+  <button id="fly-to-luetzi">flyTo Lützi</button>
+
+
+  <script type="module">
+    
+    // Grant luetzipedia.org access to Atlas ion assets
+    //Cesium.Ion.defaultAccessToken = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJqdGkiOiIyZjQ5YjMzMi1mYTg0LTQ5NjctOWRlOS1lOGJmMjhmZDkzYjQiLCJpZCI6MjExMzA0LCJpYXQiOjE3MzQ0NTM2MDF9.OU5HNQc1sSdroIlqezD124cALluNevEzZzO9jae7vN4";
+    
+    // DEVELOPMENT ONLY: delete this token before publishing and use the url-restricted token above for publishing on luetzipedia.org
+    Cesium.Ion.defaultAccessToken = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJqdGkiOiJiMDk3NGIwNS0wNTE3LTQxOTgtODRlOC1iMzJlNDkxNGE1YzEiLCJpZCI6MjExMzA0LCJpYXQiOjE3MzQ0NTQ5MDR9.GoQEEFou4rx_A40WKYZ8NhIHVnQw19AwCYreqj2UQlk";
+
+    // set home view to Lützi before viewer construction
+    var extent = Cesium.Rectangle.fromDegrees(6.42,51.056,6.435,51.064); // Lützi :)
+    Cesium.Camera.DEFAULT_VIEW_RECTANGLE = extent;
+    Cesium.Camera.DEFAULT_VIEW_FACTOR = 0;
+
+    const viewer = new Cesium.Viewer("cesiumContainer", {
+      terrainProvider: await Cesium.CesiumTerrainProvider.fromIonAssetId(
+        1,
+      ),
+      timeline: false, // Tageszeitleiste ausblenden
+      animation: false, // Tageszeit-Animator ausblenden
+      // geocoder: false, // Ortsuche
+      sceneModePicker: false, // 2D/3D-Mode-Auswahl ausblenden
+      // homeButton: false, // Home (Lützi)
+      // navigationHelpButton: false, (Navi info panel)
+      baseLayerPicker: false, // Hintergrund-Karten-Auswahl ausblenden
+    });
+    viewer.scene.globe.depthTestAgainstTerrain = false; // OBJs immer über Grund rendern
+
+    try {
+      const left = await Cesium.Cesium3DTileset.fromIonAssetId(2801591);
+      viewer.scene.primitives.add(left);
+      left.splitDirection = Cesium.SplitDirection.LEFT;
+
+      const spLine = await Cesium.Cesium3DTileset.fromIonAssetId(2553946);
+      viewer.scene.primitives.add(spLine);
+      spLine.splitDirection = Cesium.SplitDirection.RIGHT;
+
+      const right = await Cesium.Cesium3DTileset.fromIonAssetId(2882527);
+      viewer.scene.primitives.add(right);
+      right.splitDirection = Cesium.SplitDirection.RIGHT;
+
+      viewer.zoomTo(spLine);
+
+    } catch (error) {
+      console.log(`Error loading tileset: ${error}`);
+    }
+
+    // button functions
+    document.querySelector('#zoom-to-luetzi').onclick = function() {
+      const luetzi = Cesium.Cesium3DTileset.fromIonAssetId(2553946);
+      viewer.zoomTo(luetzi);
+    };
+
+    document.querySelector('#fly-to-luetzi').onclick = function() {
+      const luetzi = Cesium.Cesium3DTileset.fromIonAssetId(2553946);
+      viewer.flyTo(luetzi);
+    };
+
+    //Sandcastle.addToolbarButton("flyTo Lützi", flyCameraFunction);
+
+    // Sync the position of the slider with the split position
+    const slider = document.getElementById("slider");
+    viewer.scene.splitPosition =
+      slider.offsetLeft / slider.parentElement.offsetWidth;
+
+    const handler = new Cesium.ScreenSpaceEventHandler(slider);
+
+    let moveActive = false;
+
+    function move(movement) {
+      if (!moveActive) {
+        return;
+      }
+
+      const relativeOffset = movement.endPosition.x;
+      const splitPosition =
+        (slider.offsetLeft + relativeOffset) /
+        slider.parentElement.offsetWidth;
+      slider.style.left = `${100.0 * splitPosition}%`;
+      viewer.scene.splitPosition = splitPosition;
+    }
+
+    handler.setInputAction(function () {
+      moveActive = true;
+    }, Cesium.ScreenSpaceEventType.LEFT_DOWN);
+    handler.setInputAction(function () {
+      moveActive = true;
+    }, Cesium.ScreenSpaceEventType.PINCH_START);
+
+    handler.setInputAction(move, Cesium.ScreenSpaceEventType.MOUSE_MOVE);
+    handler.setInputAction(move, Cesium.ScreenSpaceEventType.PINCH_MOVE);
+
+    handler.setInputAction(function () {
+      moveActive = false;
+    }, Cesium.ScreenSpaceEventType.LEFT_UP);
+    handler.setInputAction(function () {
+      moveActive = false;
+    }, Cesium.ScreenSpaceEventType.PINCH_END);
+
+      
+
+  </script>
+
+ </div>
+
+</body>
+
+</html>

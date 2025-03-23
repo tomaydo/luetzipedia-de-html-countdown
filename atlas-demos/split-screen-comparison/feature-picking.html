@@ -1,0 +1,362 @@
+<!DOCTYPE html>
+
+<html lang="en">
+
+<head>
+
+  <meta charset="utf-8">
+
+  <title>Split Screen Test – Lützipedia 4D Atlas</title>
+
+  <!-- Include the CesiumJS JavaScript and CSS files -->
+
+  <script src="https://cesium.com/downloads/cesiumjs/releases/1.117/Build/Cesium/Cesium.js"></script>
+
+  <link href="https://cesium.com/downloads/cesiumjs/releases/1.117/Build/Cesium/Widgets/widgets.css" rel="stylesheet">
+
+  <link href="style.css" rel="stylesheet">
+  
+  <style type="text/css">
+    @import url(bucket.css);
+
+    #slider {
+      position: absolute;
+      left: 50%;
+      top: 0px;
+      background-color: #d3d3d300;
+      width: 3px;
+      height: 100%;
+      z-index: 9999;
+    }
+
+    #slider:hover {
+      cursor: ew-resize;
+    }
+
+    #startView { z-index: 1; position: fixed; top: 5px; left: 5px; }
+    #orbitCam { z-index: -1; position: fixed; top: 35px; left: 5px; }
+
+    #toolbarSelectLeft { z-index: 1; position: fixed; top: 5px; left: 42.4%; }
+    #toolbarSelectRight { z-index: 1; position: fixed; top: 5px; left: 52%; }
+
+  </style>
+
+</head>
+
+<body>
+
+  <div id="cesiumContainer" class="fullSize">
+    <div id="slider"></div>
+  </div>
+  <div id="loadingOverlay"><h1>Loading...</h1></div>
+
+  <button id="startView">Reset View</button>
+  <!-- This is a comment -->
+  <button id="orbitCam">Screensaver</button>
+  
+  <select name="toolbarSelectLeft" id="toolbarSelectLeft">
+    <option value="SEP 2021">SEP 2021</option>
+    <option value="APR 2022">APR 2022</option>
+    <option value="JUN 2023">JUN 2023</option>
+  </select>
+
+  <select name="toolbarSelectRight" id="toolbarSelectRight">
+    <option value="SEP 2021">SEP 2021</option>
+    <option value="APR 2022">APR 2022</option>
+    <option value="JUN 2023">JUN 2023</option>
+  </select>
+
+
+  <script type="module">
+    // Grant luetzipedia.org access to Atlas ion assets
+    //Cesium.Ion.defaultAccessToken = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJqdGkiOiIyZjQ5YjMzMi1mYTg0LTQ5NjctOWRlOS1lOGJmMjhmZDkzYjQiLCJpZCI6MjExMzA0LCJpYXQiOjE3MzQ0NTM2MDF9.OU5HNQc1sSdroIlqezD124cALluNevEzZzO9jae7vN4";
+    
+    // DEVELOPMENT ONLY: delete this token before publishing and use the url-restricted token above for publishing on luetzipedia.org
+    Cesium.Ion.defaultAccessToken = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJqdGkiOiJiMDk3NGIwNS0wNTE3LTQxOTgtODRlOC1iMzJlNDkxNGE1YzEiLCJpZCI6MjExMzA0LCJpYXQiOjE3MzQ0NTQ5MDR9.GoQEEFou4rx_A40WKYZ8NhIHVnQw19AwCYreqj2UQlk";
+
+    // set home view to Lützi before viewer construction
+    var extent = Cesium.Rectangle.fromDegrees(6.42,51.056,6.435,51.064); // Lützi :)
+    Cesium.Camera.DEFAULT_VIEW_RECTANGLE = extent;
+    Cesium.Camera.DEFAULT_VIEW_FACTOR = 0;
+
+    const viewer = new Cesium.Viewer("cesiumContainer", {
+      terrainProvider: await Cesium.CesiumTerrainProvider.fromIonAssetId(1),
+      //geocoder: false,
+      sceneModePicker: false,
+      //homeButton: false,
+      //navigationHelpButton: false,
+      //baseLayerPicker: false,
+      timeline: false, // Tageszeitleiste ausblenden
+      animation: false, // Tageszeit-Animator ausblenden
+    });
+    viewer.scene.globe.depthTestAgainstTerrain = false; // OBJs immer über Grund rendern
+
+    // Asset Lookup tables ================================================
+
+    // Asset IDs
+    const assetIds = {
+      "SEP 2021": 2888406,
+      "APR 2022": 2801591,
+      "JUN 2023": 2882527,
+    };
+
+    const luetzi = await Cesium.Cesium3DTileset.fromIonAssetId(2888406);
+    viewer.zoomTo(luetzi);
+
+    // List of tileset names for creating options and indexing into the
+    // lookup tables above.
+    const tilesetNames = ["SEP 2021", "APR 2022", "JUN 2023"];
+
+    // Tileset Loading ====================================================
+
+    // Create two primitive collections, one for each half of the screen.
+    // This way we can clear one half of the screen at a time.
+    const leftCollection = viewer.scene.primitives.add(
+      new Cesium.PrimitiveCollection(),
+    );
+    const rightCollection = viewer.scene.primitives.add(
+      new Cesium.PrimitiveCollection(),
+    );
+    const bothCollection = viewer.scene.primitives.add(
+      new Cesium.PrimitiveCollection(),
+    );
+
+    // Load a tileset to LEFT half of the screen, returning the tileset
+    async function loadLeftTileset(tilesetName) {
+
+      const collection = leftCollection;
+
+      const assetId = assetIds[tilesetName];
+      if (!Cesium.defined(assetId)) {
+        collection.removeAll();
+        return;
+      }
+
+      collection.removeAll();
+      const tileset = await Cesium.Cesium3DTileset.fromIonAssetId(assetId);
+      tileset.splitDirection = Cesium.SplitDirection.LEFT;
+
+      collection.add(tileset);
+      
+      if (tilesetName === "JUN 2023") {
+        const spLines = await Cesium.Cesium3DTileset.fromIonAssetId(2553946);
+        spLines.splitDirection = Cesium.SplitDirection.LEFT;
+        collection.add(spLines);
+      }
+
+      return tileset;
+    }
+
+    // Load a tileset to RIGHT half of the screen, returning the tileset
+    async function loadRightTileset(tilesetName) {
+
+      const collection = rightCollection;
+
+      const assetId = assetIds[tilesetName];
+      if (!Cesium.defined(assetId)) {
+        collection.removeAll();
+        return;
+      }
+
+      collection.removeAll();
+      const tileset = await Cesium.Cesium3DTileset.fromIonAssetId(assetId);
+      tileset.splitDirection = Cesium.SplitDirection.RIGHT;
+
+      collection.add(tileset);
+      
+      // also load lines asset for JUN 2023 scene
+      if (tilesetName === "JUN 2023") {
+        const spLines = await Cesium.Cesium3DTileset.fromIonAssetId(2553946);
+        spLines.splitDirection = Cesium.SplitDirection.RIGHT;
+        collection.add(spLines);
+      }
+
+      return tileset;
+    }
+
+    // Load tilesets to BOTH halfs of the screen, returning the tileset
+    async function loadFullscreenTilesets() {
+
+      const collection = bothCollection;
+
+      collection.removeAll();
+
+      // Load FRONT faces (2898779, no Material: 2898782)
+      const tileset1 = await Cesium.Cesium3DTileset.fromIonAssetId(2898779);
+      //tileset.splitDirection = Cesium.SplitDirection.RIGHT;
+      collection.add(tileset1);
+
+      // Load BACK faces (2898778, no Material: 2898780)
+      const tileset2 = await Cesium.Cesium3DTileset.fromIonAssetId(2898778);
+      //tileset.splitDirection = Cesium.SplitDirection.RIGHT;
+      collection.add(tileset2);
+
+      return tileset1;
+    }
+
+    async function viewLeftTileset(tilesetName, splitDirection) {
+      const tileset = await loadLeftTileset(tilesetName, splitDirection);
+      //viewer.zoomTo(tileset);
+    }
+
+    async function viewRightTileset(tilesetName, splitDirection) {
+      const tileset = await loadRightTileset(tilesetName, splitDirection);
+      //viewer.zoomTo(tileset);
+    }
+
+    async function viewBothTilesets(tilesetName) {
+      // Load the tilesets simultaneously
+      viewLeftTileset(tilesetName, Cesium.SplitDirection.LEFT);
+      viewRightTileset(tilesetName, Cesium.SplitDirection.RIGHT);
+    }
+
+    // Start View
+    async function startView() {
+      viewer.camera.flyTo({
+        destination: Cesium.Cartesian3.fromDegrees(6.4277, 51.0574, 220.0),
+        orientation: {
+          heading: Cesium.Math.toRadians(-14.0),
+          pitch: Cesium.Math.toRadians(-24.0),
+          roll: 0.0,
+        },
+      });
+    }
+
+    // Orbit Camera
+    async function orbitCam() {
+      // Lock camera to a point
+      var center = Cesium.Cartesian3.fromDegrees(6.426876, 51.059999, 120);
+      var transform = Cesium.Transforms.eastNorthUpToFixedFrame(center);
+      viewer.scene.camera.lookAtTransform(transform, new Cesium.HeadingPitchRange(0, -Math.PI/8, 560));
+
+      // Orbit this point
+      viewer.clock.onTick.addEventListener(function(clock) {
+        viewer.scene.camera.rotateRight(0.002);
+      });
+    }
+
+
+    // UI =================================================================
+
+    // button functions
+    document.querySelector('#startView').onclick = function() {
+      startView();
+      // reset slider
+      const splitPosition = 0.5;
+      slider.style.left = `${100.0 * splitPosition}%`;
+      toolbarSelectLeft.style.left = `${100.0 * splitPosition - 7.6}%`;
+      toolbarSelectRight.style.left = `${100.0 * splitPosition +2}%`;
+      viewer.scene.splitPosition = splitPosition;
+    };
+
+    document.querySelector('#orbitCam').onclick = function() {
+      //orbitCam();
+    };
+
+    window.addEventListener('keydown', function(event){
+      if(event.keyCode === 32){
+        orbitCam();
+      }
+    })
+
+    // Tileset dropdown ---------------------------------------------------
+
+    // menu functions
+    document.querySelector('#toolbarSelectLeft').onchange = function() {
+      leftFunction();
+      // reset slider
+      const splitPosition = 0.5;
+      slider.style.left = `${100.0 * splitPosition}%`;
+      toolbarSelectLeft.style.left = `${100.0 * splitPosition - 7.6}%`;
+      toolbarSelectRight.style.left = `${100.0 * splitPosition +2}%`;
+      viewer.scene.splitPosition = splitPosition;
+    };
+    document.querySelector('#toolbarSelectRight').onchange = function() {
+      rightFunction();
+      // reset slider
+      const splitPosition = 0.5;
+      slider.style.left = `${100.0 * splitPosition}%`;
+      toolbarSelectLeft.style.left = `${100.0 * splitPosition - 7.6}%`;
+      toolbarSelectRight.style.left = `${100.0 * splitPosition +2}%`;
+      viewer.scene.splitPosition = splitPosition;
+    };
+
+
+    async function leftFunction() {
+      let x = document.getElementById("toolbarSelectLeft").value;
+      viewLeftTileset(x, Cesium.SplitDirection.LEFT).catch(console.error);
+    }
+
+    async function rightFunction() {
+      let x = document.getElementById("toolbarSelectRight").value;
+      viewRightTileset(x, Cesium.SplitDirection.RIGHT).catch(console.error);
+    }
+
+    // load default selections
+    const leftDefault = "SEP 2021";
+    document.querySelector('#toolbarSelectLeft').value = leftDefault;
+    viewLeftTileset(leftDefault, Cesium.SplitDirection.LEFT).catch(console.error);
+    
+    const rightDefault = "APR 2022";
+    document.querySelector('#toolbarSelectRight').value = rightDefault;
+    viewRightTileset(rightDefault, Cesium.SplitDirection.RIGHT).catch(console.error);
+
+    loadFullscreenTilesets();
+    
+    await startView();
+
+
+
+    // Splitter ----------------------------------------------------------
+
+    // This code is the same as in the 3D Tiles Compare Sandcastle.
+
+    // Sync the position of the slider with the split position
+    const slider = document.getElementById("slider");
+    viewer.scene.splitPosition = slider.offsetLeft / slider.parentElement.offsetWidth;
+
+    const handler = new Cesium.ScreenSpaceEventHandler(slider);
+
+    let moveActive = false;
+
+    function move(movement) {
+      if (!moveActive) {
+        return;
+      }
+
+      const relativeOffset = movement.endPosition.x;
+      const splitPosition =
+        (slider.offsetLeft + relativeOffset) / slider.parentElement.offsetWidth;
+      slider.style.left = `${100.0 * splitPosition}%`;
+      toolbarSelectLeft.style.left = `${100.0 * splitPosition - 7.6}%`;
+      toolbarSelectRight.style.left = `${100.0 * splitPosition + 2}%`;
+      viewer.scene.splitPosition = splitPosition;
+    }
+
+    handler.setInputAction(function () {
+      moveActive = true;
+    }, Cesium.ScreenSpaceEventType.LEFT_DOWN);
+    handler.setInputAction(function () {
+      moveActive = true;
+    }, Cesium.ScreenSpaceEventType.PINCH_START);
+
+    handler.setInputAction(move, Cesium.ScreenSpaceEventType.MOUSE_MOVE);
+    handler.setInputAction(move, Cesium.ScreenSpaceEventType.PINCH_MOVE);
+
+    handler.setInputAction(function () {
+      moveActive = false;
+    }, Cesium.ScreenSpaceEventType.LEFT_UP);
+    handler.setInputAction(function () {
+      moveActive = false;
+    }, Cesium.ScreenSpaceEventType.PINCH_END);
+
+
+
+
+  </script>
+
+ </div>
+
+</body>
+
+</html>
